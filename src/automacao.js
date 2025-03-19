@@ -95,7 +95,49 @@ async function acessarMatriculaTransporte(driver) {
 }
 
 /**
- * Executa o processo completo de login e navegação até Matrícula Transporte.
+ * Pesquisa um aluno pelo nome e verifica se ele já possui matrícula.
+ * @param {WebDriver} driver
+ * @param {string} nomeAluno
+ * @returns {boolean} Retorna `true` se o aluno já tem matrícula, `false` caso contrário.
+ */
+async function pesquisarAluno(driver, nomeAluno) {
+    try {
+        console.log(`🔎 Pesquisando aluno: ${nomeAluno}...`);
+
+        // Localiza o campo de pesquisa e insere o nome do aluno
+        let campoPesquisa = await driver.wait(
+            until.elementLocated(By.xpath("//input[contains(@placeholder, 'DIGITE AQUI O NOME DA PESSOA')]")),
+            5000
+        );
+        await campoPesquisa.clear();
+        await campoPesquisa.sendKeys(nomeAluno);
+
+        // Clica no botão "Pesquisar"
+        let botaoPesquisar = await driver.findElement(By.xpath("//button[contains(span/text(), 'Pesquisar')]"));
+        await driver.executeScript("arguments[0].click();", botaoPesquisar);
+
+        // Aguarda os resultados carregarem
+        await driver.sleep(3000); // Tempo para os dados aparecerem
+
+        // Verifica se o aluno já possui matrícula
+        let possuiMatricula = await driver.findElements(By.xpath("//div[@title='Possui Matrícula']"));
+        
+        if (possuiMatricula.length > 0) {
+            console.log(`✅ O aluno ${nomeAluno} já possui matrícula.`);
+            return true; // O aluno já está cadastrado
+        } else {
+            console.log(`❌ O aluno ${nomeAluno} NÃO possui matrícula. Será cadastrado.`);
+            return false; // O aluno precisa ser cadastrado
+        }
+
+    } catch (error) {
+        console.error(`❌ Erro ao pesquisar o aluno ${nomeAluno}:`, error);
+        return false;
+    }
+}
+
+/**
+ * Executa o processo completo de login, navegação e pesquisa de alunos.
  */
 async function iniciarAutomacao() {
     let driver = await iniciarNavegador();
@@ -108,6 +150,22 @@ async function iniciarAutomacao() {
 
         await acessarMatriculaTransporte(driver);
         console.log("✅ Página de Matrícula Transporte acessada!");
+
+        // Lê os alunos do CSV
+        const caminhoCSV = path.join(__dirname, "../data/alunos.csv");
+        const alunos = await lerCSV(caminhoCSV);
+
+        for (const aluno of alunos) {
+            let nome = aluno.NOME;
+
+            // Pesquisar aluno no sistema
+            let jaCadastrado = await pesquisarAluno(driver, nome);
+
+            if (!jaCadastrado) {
+                console.log(`📝 Iniciando cadastro de ${nome}...\n`);
+                // Aqui vamos chamar a função que fará o cadastro (próximo passo)
+            }
+        }
 
     } catch (error) {
         console.error("❌ Erro durante a automação:", error);
