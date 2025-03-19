@@ -1,0 +1,25 @@
+{
+  "name": "auto-matricula-transporte",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/theezequiel42/auto-matricula-transporte.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/theezequiel42/auto-matricula-transporte/issues"
+  },
+  "homepage": "https://github.com/theezequiel42/auto-matricula-transporte#readme",
+  "description": "",
+  "dependencies": {
+    "csv-parser": "^3.2.0",
+    "dotenv": "^16.4.7",
+    "selenium-webdriver": "^4.29.0"
+  }
+}
