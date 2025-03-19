@@ -96,6 +96,7 @@ async function acessarMatriculaTransporte(driver) {
 
 /**
  * Pesquisa um aluno pelo nome e verifica se ele já possui matrícula.
+ * Se o aluno não estiver matriculado, clica no nome para selecioná-lo.
  * @param {WebDriver} driver
  * @param {string} nomeAluno
  * @returns {boolean} Retorna `true` se o aluno já tem matrícula, `false` caso contrário.
@@ -121,14 +122,25 @@ async function pesquisarAluno(driver, nomeAluno) {
 
         // Verifica se o aluno já possui matrícula
         let possuiMatricula = await driver.findElements(By.xpath("//div[@title='Possui Matrícula']"));
-        
         if (possuiMatricula.length > 0) {
             console.log(`✅ O aluno ${nomeAluno} já possui matrícula.`);
             return true; // O aluno já está cadastrado
-        } else {
-            console.log(`❌ O aluno ${nomeAluno} NÃO possui matrícula. Será cadastrado.`);
-            return false; // O aluno precisa ser cadastrado
         }
+
+        // Se não possui matrícula, precisa clicar no nome do aluno
+        console.log(`📌 O aluno ${nomeAluno} NÃO possui matrícula. Selecionando na lista...`);
+        let alunoNaLista = await driver.wait(
+            until.elementLocated(By.xpath(`//td[contains(@class, 'x-grid-cell')]/div[contains(text(), '${nomeAluno}')]`)),
+            5000
+        );
+
+        // Garante que o nome do aluno está visível antes de clicar
+        await driver.executeScript("arguments[0].scrollIntoView();", alunoNaLista);
+        await driver.sleep(1000);
+        await driver.executeScript("arguments[0].click();", alunoNaLista);
+
+        console.log(`✅ Aluno ${nomeAluno} selecionado!`);
+        return false; // O aluno precisa ser cadastrado
 
     } catch (error) {
         console.error(`❌ Erro ao pesquisar o aluno ${nomeAluno}:`, error);
@@ -137,7 +149,64 @@ async function pesquisarAluno(driver, nomeAluno) {
 }
 
 /**
- * Executa o processo completo de login, navegação e pesquisa de alunos.
+ * Realiza o cadastro de um aluno no sistema.
+ * @param {WebDriver} driver
+ * @param {Object} aluno Dados do aluno extraídos do CSV.
+ */
+async function cadastrarAluno(driver, aluno) {
+    try {
+        console.log(`📝 Iniciando cadastro de ${aluno.NOME}...`);
+
+        // Aguarda o botão "Incluir" correto aparecer após selecionar o aluno
+        console.log("⌛ Aguardando botão 'Incluir'...");
+        let botaoIncluir = await driver.wait(
+            until.elementLocated(By.xpath("//button[@id='ext-gen1323']")),
+            5000
+        );
+
+        // Clica no botão "Incluir"
+        await driver.executeScript("arguments[0].click();", botaoIncluir);
+        console.log("✅ Botão 'Incluir' clicado!");
+        await driver.sleep(2000); // Tempo para abrir o formulário
+
+        // Selecionar o Turno
+        console.log("⌛ Selecionando turno...");
+        let turnoDropdown = await driver.findElement(By.id("ext-gen1831"));
+
+        // Garante que o dropdown seja aberto corretamente
+        await driver.executeScript("arguments[0].click();", turnoDropdown);
+        await driver.sleep(2000); // Tempo extra para as opções carregarem
+
+        // Garante que a opção está carregada antes de tentar clicar
+        let turnoSelecionado;
+        switch (aluno.TURNO.toUpperCase()) {
+            case "MATUTINO":
+                turnoSelecionado = "Manhã";
+                break;
+            case "VESPERTINO":
+                turnoSelecionado = "Tarde";
+                break;
+            case "NOTURNO":
+                turnoSelecionado = "Noite";
+                break;
+            default:
+                turnoSelecionado = "Integral";
+        }
+
+        let opcaoTurno = await driver.wait(
+            until.elementLocated(By.xpath(`//li[contains(text(),'${turnoSelecionado}')]`)),
+            5000
+        );
+        await driver.executeScript("arguments[0].click();", opcaoTurno);
+        console.log(`✅ Turno selecionado: ${turnoSelecionado}`);
+
+    } catch (error) {
+        console.error(`❌ Erro ao cadastrar o aluno ${aluno.NOME}:`, error);
+    }
+}
+
+/**
+ * Executa o processo completo de login, navegação, pesquisa e cadastro de alunos.
  */
 async function iniciarAutomacao() {
     let driver = await iniciarNavegador();
@@ -162,8 +231,7 @@ async function iniciarAutomacao() {
             let jaCadastrado = await pesquisarAluno(driver, nome);
 
             if (!jaCadastrado) {
-                console.log(`📝 Iniciando cadastro de ${nome}...\n`);
-                // Aqui vamos chamar a função que fará o cadastro (próximo passo)
+                await cadastrarAluno(driver, aluno);
             }
         }
 
