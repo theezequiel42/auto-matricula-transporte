@@ -96,7 +96,7 @@ async function acessarMatriculaTransporte(driver) {
 
 /**
  * Pesquisa um aluno pelo nome e verifica se ele já possui matrícula.
- * Se o aluno não estiver matriculado, clica no nome para selecioná-lo.
+ * Se o aluno não estiver matriculado, clica no nome e aguarda a ativação do botão "Incluir".
  * @param {WebDriver} driver
  * @param {string} nomeAluno
  * @returns {boolean} Retorna `true` se o aluno já tem matrícula, `false` caso contrário.
@@ -118,29 +118,49 @@ async function pesquisarAluno(driver, nomeAluno) {
         await driver.executeScript("arguments[0].click();", botaoPesquisar);
 
         // Aguarda os resultados carregarem
-        await driver.sleep(3000); // Tempo para os dados aparecerem
+        await driver.sleep(3000);
 
         // Verifica se o aluno já possui matrícula
         let possuiMatricula = await driver.findElements(By.xpath("//div[@title='Possui Matrícula']"));
         if (possuiMatricula.length > 0) {
             console.log(`✅ O aluno ${nomeAluno} já possui matrícula.`);
-            return true; // O aluno já está cadastrado
+            return true;
         }
 
-        // Se não possui matrícula, precisa clicar no nome do aluno
-        console.log(`📌 O aluno ${nomeAluno} NÃO possui matrícula. Selecionando na lista...`);
-        let alunoNaLista = await driver.wait(
-            until.elementLocated(By.xpath(`//td[contains(@class, 'x-grid-cell')]/div[contains(text(), '${nomeAluno}')]`)),
+        console.log(`📌 O aluno ${nomeAluno} NÃO possui matrícula. Tentando seleção...`);
+
+        let alunoLinha = await driver.wait(
+            until.elementLocated(By.xpath(`//div[contains(@class, 'x-grid-cell-inner') and text()='${nomeAluno}']/ancestor::tr`)),
             5000
         );
 
-        // Garante que o nome do aluno está visível antes de clicar
-        await driver.executeScript("arguments[0].scrollIntoView();", alunoNaLista);
-        await driver.sleep(1000);
-        await driver.executeScript("arguments[0].click();", alunoNaLista);
+        // **1️⃣ Simula um movimento de mouse antes de clicar**
+        let actions = driver.actions({ async: true });
+        await actions.move({ origin: alunoLinha }).perform();
+        await driver.sleep(500);
 
-        console.log(`✅ Aluno ${nomeAluno} selecionado!`);
-        return false; // O aluno precisa ser cadastrado
+        // **2️⃣ Clica no nome do aluno (tentativa padrão)**
+        try {
+            await alunoLinha.click();
+            console.log(`✅ Primeiro clique no aluno ${nomeAluno} realizado.`);
+        } catch (error) {
+            console.warn("⚠️ Clique normal falhou, tentando via JavaScript...");
+            await driver.executeScript("arguments[0].click();", alunoLinha);
+            console.log(`✅ Clique via JavaScript no aluno ${nomeAluno} realizado.`);
+        }
+
+        // **3️⃣ Aguarda a interface processar**
+        await driver.sleep(1500);
+
+        // **4️⃣ Confirma que a linha foi realmente selecionada**
+        let linhaSelecionada = await driver.wait(
+            until.elementLocated(By.xpath(`//tr[contains(@class, 'x-grid-row-selected') and descendant::div[text()='${nomeAluno}']]`)),
+            5000
+        );
+
+        console.log(`✅ Confirmação: O aluno ${nomeAluno} foi selecionado corretamente!`);
+
+        return false;
 
     } catch (error) {
         console.error(`❌ Erro ao pesquisar o aluno ${nomeAluno}:`, error);
@@ -157,48 +177,28 @@ async function cadastrarAluno(driver, aluno) {
     try {
         console.log(`📝 Iniciando cadastro de ${aluno.NOME}...`);
 
-        // Aguarda o botão "Incluir" correto aparecer após selecionar o aluno
-        console.log("⌛ Aguardando botão 'Incluir'...");
+        // Aguarda o botão "Incluir" correto ficar disponível
+        console.log("⌛ Aguardando botão 'Incluir' ativar...");
         let botaoIncluir = await driver.wait(
-            until.elementLocated(By.xpath("//button[@id='ext-gen1323']")),
-            5000
+            until.elementLocated(By.xpath("//button[@id='ext-gen1323' and not(@disabled)]")),
+            8000
         );
 
-        // Clica no botão "Incluir"
+        // Garante que o botão está visível antes de clicar
+        await driver.executeScript("arguments[0].scrollIntoView();", botaoIncluir);
+        await driver.sleep(1000);
         await driver.executeScript("arguments[0].click();", botaoIncluir);
         console.log("✅ Botão 'Incluir' clicado!");
         await driver.sleep(2000); // Tempo para abrir o formulário
 
-        // Selecionar o Turno
-        console.log("⌛ Selecionando turno...");
-        let turnoDropdown = await driver.findElement(By.id("ext-gen1831"));
-
-        // Garante que o dropdown seja aberto corretamente
-        await driver.executeScript("arguments[0].click();", turnoDropdown);
-        await driver.sleep(2000); // Tempo extra para as opções carregarem
-
-        // Garante que a opção está carregada antes de tentar clicar
-        let turnoSelecionado;
-        switch (aluno.TURNO.toUpperCase()) {
-            case "MATUTINO":
-                turnoSelecionado = "Manhã";
-                break;
-            case "VESPERTINO":
-                turnoSelecionado = "Tarde";
-                break;
-            case "NOTURNO":
-                turnoSelecionado = "Noite";
-                break;
-            default:
-                turnoSelecionado = "Integral";
-        }
-
-        let opcaoTurno = await driver.wait(
-            until.elementLocated(By.xpath(`//li[contains(text(),'${turnoSelecionado}')]`)),
-            5000
+        // Aguarda o carregamento do formulário
+        console.log("⌛ Aguardando o carregamento do formulário...");
+        await driver.wait(
+            until.elementLocated(By.xpath("//input[@name='cboTrajetoMatriculaTransporte']")),
+            15000
         );
-        await driver.executeScript("arguments[0].click();", opcaoTurno);
-        console.log(`✅ Turno selecionado: ${turnoSelecionado}`);
+        await driver.sleep(2000);
+        console.log("✅ Formulário carregado!");
 
     } catch (error) {
         console.error(`❌ Erro ao cadastrar o aluno ${aluno.NOME}:`, error);
