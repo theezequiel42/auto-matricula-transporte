@@ -129,6 +129,7 @@ async function pesquisarAluno(driver, nomeAluno) {
 
         console.log(`📌 O aluno ${nomeAluno} NÃO possui matrícula. Tentando seleção...`);
 
+        // **1️⃣ Localiza a linha do aluno na tabela**
         let alunoLinha = await driver.wait(
             until.elementLocated(By.xpath(`//div[contains(@class, 'x-grid-cell-inner') and text()='${nomeAluno}']/ancestor::tr`)),
             5000
@@ -199,6 +200,7 @@ async function cadastrarAluno(driver, aluno) {
         );
         await driver.sleep(2000);
         console.log("✅ Formulário carregado!");
+        await preencherFormulario(driver, aluno);
 
     } catch (error) {
         console.error(`❌ Erro ao cadastrar o aluno ${aluno.NOME}:`, error);
@@ -206,8 +208,149 @@ async function cadastrarAluno(driver, aluno) {
 }
 
 /**
- * Executa o processo completo de login, navegação, pesquisa e cadastro de alunos.
+ * Preenche o formulário de matrícula para transporte escolar.
+ * @param {WebDriver} driver
+ * @param {Object} aluno - Objeto contendo informações do aluno (inclui nome, turno, localidade e ano).
  */
+async function preencherFormulario(driver, aluno) {
+    try {
+        console.log(`📝 Tentando preencher o formulário para ${aluno.NOME}...`);
+
+        // **1️⃣ Aguarda a renderização do modal**
+        console.log("⌛ Aguardando a exibição do formulário...");
+        let modalForm = await driver.wait(
+            until.elementLocated(By.xpath("//div[contains(@class,'x-window') and contains(@role, 'dialog')]")),
+            5000
+        );
+        console.log("✅ Formulário modal identificado.");
+
+        // **2️⃣ Garante que o modal está visível**
+        await driver.wait(until.elementIsVisible(modalForm), 5000);
+        console.log("✅ Modal carregado e visível.");
+
+        await driver.sleep(1000); // Garantir carregamento do modal
+
+        console.log(`📝 Tentando preencher o formulário para ${aluno.NOME}...`);
+
+        // **1️⃣ Verifica se os dados do aluno são válidos**
+        if (!aluno || !aluno.TURNO || !aluno.LOCALIDADE || !aluno.ANO) {
+            console.error(`❌ Erro: Informações do aluno estão incompletas.`);
+            console.error(`🔍 Dados do aluno:`, aluno);
+            return;
+        }
+
+        // **3️⃣ Selecionar Turno**
+        console.log(`⌛ Selecionando turno: ${aluno.TURNO}...`);
+
+        let botaoTurno = await driver.findElement(By.id("ext-gen1780"));
+        await driver.actions().move({ origin: botaoTurno }).perform();
+        await botaoTurno.click();
+        await driver.sleep(500);
+
+        // **Aguarda a lista de opções aparecer**
+        let listaOpcoes = await driver.wait(
+            until.elementLocated(By.xpath("//ul[contains(@class, 'x-list-plain')]")),
+            5000
+        );
+
+        // **Seleciona a opção correta no dropdown**
+        let opcaoTurnoXPath = `//li[normalize-space(text())='${aluno.TURNO.toUpperCase()}']`;
+        let opcaoTurno = await driver.wait(until.elementLocated(By.xpath(opcaoTurnoXPath)), 5000);
+        await driver.actions().move({ origin: opcaoTurno }).perform();
+        await opcaoTurno.click();
+        console.log(`✅ Turno selecionado: ${aluno.TURNO}`);
+
+        // **4️⃣ Selecionar Unidade de Ensino**
+        console.log(`⌛ Selecionando unidade de ensino...`);
+        let botaoUnidade = await driver.findElement(By.id("ext-gen1790"));
+        await driver.actions().move({ origin: botaoUnidade }).perform();
+        await botaoUnidade.click();
+        await driver.sleep(500);
+
+        let opcaoUnidade = await driver.wait(
+            until.elementLocated(By.xpath("//li[contains(text(),'EEB GONÇALVES DIAS')]")),
+            5000
+        );
+        await driver.actions().move({ origin: opcaoUnidade }).perform();
+        await opcaoUnidade.click();
+        console.log(`✅ Unidade selecionada: EEB GONÇALVES DIAS`);
+
+        // **5️⃣ Selecionar Modalidade**
+        console.log(`⌛ Selecionando modalidade...`);
+        let botaoModalidade = await driver.findElement(By.id("ext-gen1800"));
+        await driver.actions().move({ origin: botaoModalidade }).perform();
+        await botaoModalidade.click();
+        await driver.sleep(500);
+
+        let opcaoModalidade = await driver.wait(
+            until.elementLocated(By.xpath("//li[contains(text(),'MÉDIO')]")),
+            5000
+        );
+        await driver.actions().move({ origin: opcaoModalidade }).perform();
+        await opcaoModalidade.click();
+        console.log(`✅ Modalidade selecionada: MÉDIO`);
+
+        // **6️⃣ Selecionar Série**
+        console.log(`⌛ Selecionando série: ${aluno.ANO}º ano...`);
+        let botaoSerie = await driver.findElement(By.id("ext-gen1810"));
+        await driver.actions().move({ origin: botaoSerie }).perform();
+        await botaoSerie.click();
+        await driver.sleep(500);
+
+        let opcaoSerie = await driver.wait(
+            until.elementLocated(By.xpath(`//li[contains(text(),'${aluno.ANO} ANO')]`)),
+            5000
+        );
+        await driver.actions().move({ origin: opcaoSerie }).perform();
+        await opcaoSerie.click();
+        console.log(`✅ Série selecionada: ${aluno.ANO}º ano`);
+
+        // **7️⃣ Selecionar Trajeto**
+        console.log(`⌛ Selecionando trajeto baseado na localidade e turno...`);
+        let botaoTrajeto = await driver.findElement(By.id("ext-gen1820"));
+        await driver.actions().move({ origin: botaoTrajeto }).perform();
+        await botaoTrajeto.click();
+        await driver.sleep(500);
+
+        let trajetoXPath;
+        switch (aluno.TURNO.toUpperCase()) {
+            case "MATUTINO":
+                trajetoXPath = `//li[contains(text(),'${aluno.LOCALIDADE}') and (contains(text(),'(M)') or contains(text(),'(M/V)'))]`;
+                break;
+            case "VESPERTINO":
+                trajetoXPath = `//li[contains(text(),'${aluno.LOCALIDADE}') and (contains(text(),'(V)') or contains(text(),'(M/V)'))]`;
+                break;
+            case "NOTURNO":
+                trajetoXPath = `//li[contains(text(),'${aluno.LOCALIDADE}') and contains(text(),'(N)')]`;
+                break;
+            case "INTEGRAL":
+                trajetoXPath = `//li[contains(text(),'${aluno.LOCALIDADE}') and not(contains(text(),'(N)'))]`;
+                break;
+            default:
+                console.warn(`⚠️ Turno não reconhecido (${aluno.TURNO}). Selecionando primeira opção disponível.`);
+                trajetoXPath = `//li[contains(text(),'${aluno.LOCALIDADE}')]`;
+        }
+
+        let opcaoTrajeto = await driver.wait(
+            until.elementLocated(By.xpath(trajetoXPath)),
+            5000
+        );
+        await driver.actions().move({ origin: opcaoTrajeto }).perform();
+        await opcaoTrajeto.click();
+        console.log(`✅ Trajeto selecionado: ${aluno.LOCALIDADE} - ${aluno.TURNO}`);
+
+        // **8️⃣ Clicar em "Salvar"**
+        console.log(`⌛ Salvando matrícula...`);
+        let botaoSalvar = await driver.findElement(By.id("ext-gen1835"));
+        await driver.actions().move({ origin: botaoSalvar }).perform();
+        await botaoSalvar.click();
+        console.log(`✅ Matrícula de ${aluno.NOME} salva com sucesso!`);
+
+    } catch (error) {
+        console.error(`❌ Erro ao preencher o formulário para ${aluno.NOME}:`, error);
+    }
+}
+
 async function iniciarAutomacao() {
     let driver = await iniciarNavegador();
 
@@ -225,11 +368,14 @@ async function iniciarAutomacao() {
         const alunos = await lerCSV(caminhoCSV);
 
         for (const aluno of alunos) {
-            let nome = aluno.NOME;
+            console.log(`🔍 Processando aluno:`, aluno); // Log para verificar os dados
 
-            // Pesquisar aluno no sistema
-            let jaCadastrado = await pesquisarAluno(driver, nome);
+            if (!aluno.NOME || !aluno.TURNO || !aluno.LOCALIDADE || !aluno.ANO) {
+                console.error(`⚠️ Dados do aluno incompletos! Pulando aluno:`, aluno);
+                continue;
+            }
 
+            let jaCadastrado = await pesquisarAluno(driver, aluno.NOME);
             if (!jaCadastrado) {
                 await cadastrarAluno(driver, aluno);
             }
@@ -238,7 +384,6 @@ async function iniciarAutomacao() {
     } catch (error) {
         console.error("❌ Erro durante a automação:", error);
     } finally {
-        // Fechar o navegador após 10 segundos para visualizar o resultado
         await driver.sleep(10000);
         await driver.quit();
         console.log("🔴 Automação finalizada!");

@@ -12,18 +12,21 @@ function lerCSV(filePath) {
         const resultados = [];
         fs.createReadStream(filePath)
             .pipe(csv({ separator: "," })) // Define o separador como vírgula
-            .on("data", (data) => resultados.push(data))
+            .on("data", (data) => {
+                // Normaliza os campos removendo espaços extras e garantindo letras maiúsculas
+                const aluno = {
+                    NOME: data.NOME?.trim().toUpperCase() || "",
+                    ANO: data.ANO?.trim() || "",
+                    LOCALIDADE: data.LOCALIDADE?.trim().toUpperCase() || "",
+                    LINHA: data.LINHA?.trim().toUpperCase() || "",
+                    TURNO: data.TURNO?.trim().toUpperCase() || "",
+                };
+
+                resultados.push(aluno);
+            })
             .on("end", () => resolve(resultados))
             .on("error", (error) => reject(error));
     });
-}
-
-// Teste da leitura do CSV
-if (require.main === module) {
-    const caminhoCSV = path.join(__dirname, "../data/alunos.csv");
-    lerCSV(caminhoCSV)
-        .then((dados) => console.log("Dados do CSV carregados:", dados))
-        .catch((err) => console.error("Erro ao ler CSV:", err));
 }
 
 module.exports = { lerCSV };
