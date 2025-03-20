@@ -240,40 +240,79 @@ async function preencherFormulario(driver, aluno) {
         }
 
         // **3️⃣ Selecionar Turno**
-        console.log(`⌛ Selecionando turno: ${aluno.TURNO}...`);
+        // Mapeia os turnos do CSV para os valores esperados no sistema
+        const turnosMap = {
+            "MATUTINO": "Manhã",
+            "VESPERTINO": "Tarde",
+            "NOTURNO": "Noite",
+            "INTEGRAL": "Integral"
+        };
 
-        let botaoTurno = await driver.findElement(By.id("ext-gen1780"));
-        await driver.actions().move({ origin: botaoTurno }).perform();
-        await botaoTurno.click();
-        await driver.sleep(500);
+        // **3️⃣ Selecionar Turno (digitando e pressionando TAB)**
+        console.log(`⌛ Digitando turno: ${aluno.TURNO}...`);
 
-        // **Aguarda a lista de opções aparecer**
-        let listaOpcoes = await driver.wait(
-            until.elementLocated(By.xpath("//ul[contains(@class, 'x-list-plain')]")),
-            5000
-        );
+        try {
+            let campoTurno = await driver.wait(
+                until.elementLocated(By.id("ext-gen1776")),
+                5000
+            );
 
-        // **Seleciona a opção correta no dropdown**
-        let opcaoTurnoXPath = `//li[normalize-space(text())='${aluno.TURNO.toUpperCase()}']`;
-        let opcaoTurno = await driver.wait(until.elementLocated(By.xpath(opcaoTurnoXPath)), 5000);
-        await driver.actions().move({ origin: opcaoTurno }).perform();
-        await opcaoTurno.click();
-        console.log(`✅ Turno selecionado: ${aluno.TURNO}`);
+            await driver.actions().move({ origin: campoTurno }).perform();
+            await campoTurno.clear();
 
-        // **4️⃣ Selecionar Unidade de Ensino**
-        console.log(`⌛ Selecionando unidade de ensino...`);
-        let botaoUnidade = await driver.findElement(By.id("ext-gen1790"));
-        await driver.actions().move({ origin: botaoUnidade }).perform();
-        await botaoUnidade.click();
-        await driver.sleep(500);
+            let turnoConvertido = turnosMap[aluno.TURNO.toUpperCase()] || aluno.TURNO; // Converte para o formato correto
+            await campoTurno.sendKeys(turnoConvertido);
+            await driver.sleep(300); // Aguarda processamento
 
-        let opcaoUnidade = await driver.wait(
-            until.elementLocated(By.xpath("//li[contains(text(),'EEB GONÇALVES DIAS')]")),
-            5000
-        );
-        await driver.actions().move({ origin: opcaoUnidade }).perform();
-        await opcaoUnidade.click();
-        console.log(`✅ Unidade selecionada: EEB GONÇALVES DIAS`);
+            // Pressiona TAB para confirmar a entrada e mudar de campo
+            await campoTurno.sendKeys(Key.TAB);
+            await driver.sleep(800); // Aguarda a atualização da interface
+
+            console.log(`✅ Turno digitado: ${turnoConvertido}`);
+        } catch (error) {
+            console.error(`❌ Erro ao preencher o turno para ${aluno.NOME}:`, error);
+        }
+
+        // **4️⃣ Selecionar Unidade de Ensino (digitando e pressionando TAB)**
+        console.log(`⌛ Digitando unidade de ensino...`);
+
+        try {
+            // **Clica no botão de dropdown para ativar o campo**
+            let botaoDropdownUnidade = await driver.wait(
+                until.elementLocated(By.id("ext-gen1786")),
+                5000
+            );
+            await driver.executeScript("arguments[0].scrollIntoView();", botaoDropdownUnidade);
+            await driver.sleep(500);
+            await botaoDropdownUnidade.click();
+            console.log(`✅ Dropdown da unidade clicado.`);
+
+            // **Localiza o campo de entrada da unidade**
+            let campoUnidade = await driver.wait(
+                until.elementLocated(By.id("ext-gen1790")),
+                5000
+            );
+
+            // **Aguarda o campo estar visível e habilitado**
+            await driver.wait(until.elementIsVisible(campoUnidade), 3000);
+            await driver.wait(until.elementIsEnabled(campoUnidade), 3000);
+
+            // **Tenta clicar e limpar antes de digitar**
+            await driver.executeScript("arguments[0].scrollIntoView();", campoUnidade);
+            await driver.sleep(500);
+            await campoUnidade.click();
+            await campoUnidade.clear();
+
+            // **Digita "EEB G" e pressiona TAB**
+            await campoUnidade.sendKeys("EEB G");
+            await driver.sleep(300);
+            await campoUnidade.sendKeys(Key.TAB);
+            await driver.sleep(800); // Aguarda atualização da interface
+
+            console.log(`✅ Unidade de ensino preenchida.`);
+        } catch (error) {
+            console.error(`❌ Erro ao preencher a unidade para ${aluno.NOME}:`, error);
+        }
 
         // **5️⃣ Selecionar Modalidade**
         console.log(`⌛ Selecionando modalidade...`);
