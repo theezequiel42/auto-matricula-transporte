@@ -252,6 +252,21 @@ async function preencherFormulario(driver, aluno) {
         console.log(`⌛ Digitando turno: ${aluno.TURNO}...`);
 
         try {
+            // Aguarda o elemento (dropdow TURNO) estar visível
+        let element = await driver.wait(
+            until.elementLocated(By.id('ext-gen1780')),
+            10000
+        );
+
+        // Move o cursor até o elemento antes de clicar
+        await driver.actions().move({ origin: element }).perform();
+
+        // Aguarda o elemento estar clicável e clica
+        await driver.wait(until.elementIsVisible(element), 5000);
+        await driver.wait(until.elementIsEnabled(element), 5000);
+        await element.click();
+
+        console.log("Elemento clicado com sucesso!");
             let campoTurno = await driver.wait(
                 until.elementLocated(By.id("ext-gen1776")),
                 5000
@@ -277,37 +292,23 @@ async function preencherFormulario(driver, aluno) {
         console.log(`⌛ Digitando unidade de ensino...`);
 
         try {
-            // **Clica no botão de dropdown para ativar o campo**
-            let botaoDropdownUnidade = await driver.wait(
-                until.elementLocated(By.id("ext-gen1786")),
-                5000
-            );
-            await driver.executeScript("arguments[0].scrollIntoView();", botaoDropdownUnidade);
-            await driver.sleep(500);
-            await botaoDropdownUnidade.click();
-            console.log(`✅ Dropdown da unidade clicado.`);
-
-            // **Localiza o campo de entrada da unidade**
             let campoUnidade = await driver.wait(
                 until.elementLocated(By.id("ext-gen1790")),
                 5000
             );
 
-            // **Aguarda o campo estar visível e habilitado**
-            await driver.wait(until.elementIsVisible(campoUnidade), 3000);
-            await driver.wait(until.elementIsEnabled(campoUnidade), 3000);
-
-            // **Tenta clicar e limpar antes de digitar**
-            await driver.executeScript("arguments[0].scrollIntoView();", campoUnidade);
+            // **Garante que o campo está interagível antes de digitar**
+            await driver.executeScript("arguments[0].focus();", campoUnidade);
+            await campoUnidade.click(); // Clica para garantir que está ativo
             await driver.sleep(500);
-            await campoUnidade.click();
-            await campoUnidade.clear();
 
-            // **Digita "EEB G" e pressiona TAB**
+            await campoUnidade.clear();
             await campoUnidade.sendKeys("EEB G");
             await driver.sleep(300);
+
+            // Pressiona TAB para confirmar a entrada
             await campoUnidade.sendKeys(Key.TAB);
-            await driver.sleep(800); // Aguarda atualização da interface
+            await driver.sleep(800); // Aguarda atualização
 
             console.log(`✅ Unidade de ensino preenchida.`);
         } catch (error) {
