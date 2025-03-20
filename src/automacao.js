@@ -253,20 +253,20 @@ async function preencherFormulario(driver, aluno) {
 
         try {
             // Aguarda o elemento (dropdow TURNO) estar visível
-        let element = await driver.wait(
-            until.elementLocated(By.id('ext-gen1780')),
-            10000
-        );
+            let element = await driver.wait(
+                until.elementLocated(By.id('ext-gen1780')),
+                10000
+            );
 
-        // Move o cursor até o elemento antes de clicar
-        await driver.actions().move({ origin: element }).perform();
+            // Move o cursor até o elemento antes de clicar
+            await driver.actions().move({ origin: element }).perform();
 
-        // Aguarda o elemento estar clicável e clica
-        await driver.wait(until.elementIsVisible(element), 5000);
-        await driver.wait(until.elementIsEnabled(element), 5000);
-        await element.click();
+            // Aguarda o elemento estar clicável e clica
+            await driver.wait(until.elementIsVisible(element), 5000);
+            await driver.wait(until.elementIsEnabled(element), 5000);
+            await element.click();
 
-        console.log("Elemento clicado com sucesso!");
+            console.log("Elemento clicado com sucesso!");
             let campoTurno = await driver.wait(
                 until.elementLocated(By.id("ext-gen1776")),
                 5000
@@ -292,58 +292,130 @@ async function preencherFormulario(driver, aluno) {
         console.log(`⌛ Digitando unidade de ensino...`);
 
         try {
-            let campoUnidade = await driver.wait(
-                until.elementLocated(By.id("ext-gen1790")),
+            let actions = driver.actions({ async: true });
+
+            // **1️⃣ Move o mouse para o dropdown antes de clicar**
+            let botaoDropdownUnidade = await driver.wait(
+                until.elementLocated(By.id("ext-gen1786")),
                 5000
             );
+            await actions.move({ origin: botaoDropdownUnidade }).perform();
+            await driver.sleep(500);
+            await botaoDropdownUnidade.click();
+            console.log(`✅ Dropdown da unidade clicado.`);
 
-            // **Garante que o campo está interagível antes de digitar**
-            await driver.executeScript("arguments[0].focus();", campoUnidade);
-            await campoUnidade.click(); // Clica para garantir que está ativo
+            // **2️⃣ Move o mouse antes de esperar a lista suspensa**
+            await actions.move({ origin: botaoDropdownUnidade }).perform();
             await driver.sleep(500);
 
-            await campoUnidade.clear();
-            await campoUnidade.sendKeys("EEB G");
-            await driver.sleep(300);
+            // **3️⃣ Aguarda a lista suspensa aparecer**
+            let listaOpcoesUnidade;
+            try {
+                listaOpcoesUnidade = await driver.wait(
+                    until.elementLocated(By.xpath("//ul[contains(@class, 'x-list-plain') or contains(@class, 'x-boundlist-list-ct')]")),
+                    5000
+                );
+            } catch (error) {
+                console.warn("⚠️ Lista suspensa de unidades não carregou. Tentando digitar manualmente...");
+            }
 
-            // Pressiona TAB para confirmar a entrada
-            await campoUnidade.sendKeys(Key.TAB);
-            await driver.sleep(800); // Aguarda atualização
+            // **4️⃣ Move o mouse antes de tentar selecionar a unidade**
+            try {
+                let opcaoUnidade = await driver.wait(
+                    until.elementLocated(By.xpath("//li[contains(text(), 'EEB GONÇALVES DIAS')]")),
+                    5000
+                );
+                await actions.move({ origin: opcaoUnidade }).perform();
+                await driver.sleep(500);
+                await opcaoUnidade.click();
+                console.log(`✅ Unidade selecionada via lista suspensa.`);
+            } catch (error) {
+                console.warn("⚠️ Opção na lista suspensa não encontrada. Tentando digitar manualmente...");
 
-            console.log(`✅ Unidade de ensino preenchida.`);
+                // **5️⃣ Move o mouse antes de interagir com o campo de texto**
+                let campoUnidade = await driver.wait(
+                    until.elementLocated(By.xpath("//input[contains(@name, 'cboUnidadeMatriculaTransporte')]")),
+                    5000
+                );
+                await driver.wait(until.elementIsEnabled(campoUnidade), 5000);
+                await actions.move({ origin: campoUnidade }).perform();
+                await driver.sleep(500);
+                await campoUnidade.click();
+                await driver.sleep(500);
+                await campoUnidade.clear();
+                await campoUnidade.sendKeys("EEB G");
+                await driver.sleep(500);
+                await campoUnidade.sendKeys(Key.TAB);
+                await driver.sleep(1000);
+                console.log(`✅ Unidade de ensino preenchida manualmente.`);
+            }
+
+            // **6️⃣ Move o mouse para o fundo da página e clica para confirmar**
+            let corpoPagina = await driver.findElement(By.tagName("body"));
+            await actions.move({ origin: corpoPagina }).perform();
+            await corpoPagina.click();
+            await driver.sleep(500);
+
         } catch (error) {
             console.error(`❌ Erro ao preencher a unidade para ${aluno.NOME}:`, error);
         }
 
-        // **5️⃣ Selecionar Modalidade**
+        /** 📌 SELEÇÃO DA MODALIDADE **/
         console.log(`⌛ Selecionando modalidade...`);
-        let botaoModalidade = await driver.findElement(By.id("ext-gen1800"));
-        await driver.actions().move({ origin: botaoModalidade }).perform();
-        await botaoModalidade.click();
-        await driver.sleep(500);
 
-        let opcaoModalidade = await driver.wait(
-            until.elementLocated(By.xpath("//li[contains(text(),'MÉDIO')]")),
-            5000
-        );
-        await driver.actions().move({ origin: opcaoModalidade }).perform();
-        await opcaoModalidade.click();
-        console.log(`✅ Modalidade selecionada: MÉDIO`);
+        try {
+            // **1️⃣ Fecha qualquer menu suspenso aberto para evitar erro de clique interceptado**
+            let corpoPagina = await driver.findElement(By.tagName("body"));
+            await corpoPagina.click();
+            await driver.sleep(500);
 
-        // **6️⃣ Selecionar Série**
+            let botaoModalidade = await driver.wait(
+                until.elementLocated(By.id("ext-gen1800")),
+                5000
+            );
+            await driver.executeScript("arguments[0].scrollIntoView();", botaoModalidade);
+            await driver.sleep(500);
+            await botaoModalidade.click();
+            await driver.sleep(500);
+
+            let opcaoModalidade = await driver.wait(
+                until.elementLocated(By.xpath("//li[contains(text(),'MÉDIO')]")),
+                5000
+            );
+            await driver.executeScript("arguments[0].scrollIntoView();", opcaoModalidade);
+            await driver.sleep(500);
+            await opcaoModalidade.click();
+            console.log(`✅ Modalidade selecionada: MÉDIO`);
+
+        } catch (error) {
+            console.error(`❌ Erro ao selecionar modalidade para ${aluno.NOME}:`, error);
+        }
+
+        /** 📌 SELEÇÃO DA SÉRIE **/
         console.log(`⌛ Selecionando série: ${aluno.ANO}º ano...`);
-        let botaoSerie = await driver.findElement(By.id("ext-gen1810"));
-        await driver.actions().move({ origin: botaoSerie }).perform();
-        await botaoSerie.click();
-        await driver.sleep(500);
 
-        let opcaoSerie = await driver.wait(
-            until.elementLocated(By.xpath(`//li[contains(text(),'${aluno.ANO} ANO')]`)),
-            5000
-        );
-        await driver.actions().move({ origin: opcaoSerie }).perform();
-        await opcaoSerie.click();
-        console.log(`✅ Série selecionada: ${aluno.ANO}º ano`);
+        try {
+            let botaoSerie = await driver.wait(
+                until.elementLocated(By.id("ext-gen1810")),
+                5000
+            );
+            await driver.executeScript("arguments[0].scrollIntoView();", botaoSerie);
+            await driver.sleep(500);
+            await botaoSerie.click();
+            await driver.sleep(500);
+
+            let opcaoSerie = await driver.wait(
+                until.elementLocated(By.xpath(`//li[contains(text(),'${aluno.ANO} ANO')]`)),
+                5000
+            );
+            await driver.executeScript("arguments[0].scrollIntoView();", opcaoSerie);
+            await driver.sleep(500);
+            await opcaoSerie.click();
+            console.log(`✅ Série selecionada: ${aluno.ANO}º ano`);
+
+        } catch (error) {
+            console.error(`❌ Erro ao selecionar série para ${aluno.NOME}:`, error);
+        }
 
         // **7️⃣ Selecionar Trajeto**
         console.log(`⌛ Selecionando trajeto baseado na localidade e turno...`);
