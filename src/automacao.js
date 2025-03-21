@@ -208,6 +208,30 @@ async function cadastrarAluno(driver, aluno) {
 }
 
 /**
+ * Simula clique no centro do elemento com pequeno deslocamento (offset)
+ * @param {WebDriver} driver 
+ * @param {WebElement} elemento 
+ * @param {number} xOffset 
+ * @param {number} yOffset 
+ */
+async function cliqueComOffset(driver, elemento, xOffset = 5, yOffset = 5) {
+    try {
+        const actions = driver.actions({ async: true });
+        await actions
+            .move({ origin: elemento })
+            .pause(200)
+            .move({ x: xOffset, y: yOffset, origin: elemento })
+            .press()
+            .pause(100)
+            .release()
+            .perform();
+        console.log("🖱️ Clique simulado com offset realizado com sucesso.");
+    } catch (error) {
+        console.error("❌ Erro ao simular clique com offset:", error);
+    }
+}
+
+/**
  * Preenche o formulário de matrícula para transporte escolar.
  * @param {WebDriver} driver
  * @param {Object} aluno - Objeto contendo informações do aluno (inclui nome, turno, localidade e ano).
@@ -288,74 +312,27 @@ async function preencherFormulario(driver, aluno) {
             console.error(`❌ Erro ao preencher o turno para ${aluno.NOME}:`, error);
         }
 
-        // **4️⃣ Selecionar Unidade de Ensino (digitando e pressionando TAB)**
+        // **4️⃣ Selecionar Unidade de Ensino**
         console.log(`⌛ Digitando unidade de ensino...`);
 
         try {
-            let actions = driver.actions({ async: true });
-
-            // **1️⃣ Move o mouse para o dropdown antes de clicar**
+            // Localiza e clica no botão do dropdown
             let botaoDropdownUnidade = await driver.wait(
-                until.elementLocated(By.id("ext-gen1786")),
+                until.elementLocated(By.id("ext-gen1786")), 
                 5000
             );
             await actions.move({ origin: botaoDropdownUnidade }).perform();
             await driver.sleep(500);
-            await botaoDropdownUnidade.click();
-            console.log(`✅ Dropdown da unidade clicado.`);
+            await botaoDropdownUnidade.click()
+            await driver.sleep(5000);
+            console.log("✅ Dropdown da unidade clicado.");
+            await driver.actions().sendKeys("EEB G").perform();
+            await driver.sleep(5000);
+            await driver.actions().sendKeys(Key.ARROW_DOWN).perform();
+            await driver.sleep(5000);
+            await driver.actions().sendKeys(Key.ENTER).perform();
 
-            // **2️⃣ Move o mouse antes de esperar a lista suspensa**
-            await actions.move({ origin: botaoDropdownUnidade }).perform();
-            await driver.sleep(500);
-
-            // **3️⃣ Aguarda a lista suspensa aparecer**
-            let listaOpcoesUnidade;
-            try {
-                listaOpcoesUnidade = await driver.wait(
-                    until.elementLocated(By.xpath("//ul[contains(@class, 'x-list-plain') or contains(@class, 'x-boundlist-list-ct')]")),
-                    5000
-                );
-            } catch (error) {
-                console.warn("⚠️ Lista suspensa de unidades não carregou. Tentando digitar manualmente...");
-            }
-
-            // **4️⃣ Move o mouse antes de tentar selecionar a unidade**
-            try {
-                let opcaoUnidade = await driver.wait(
-                    until.elementLocated(By.xpath("//li[contains(text(), 'EEB GONÇALVES DIAS')]")),
-                    5000
-                );
-                await actions.move({ origin: opcaoUnidade }).perform();
-                await driver.sleep(500);
-                await opcaoUnidade.click();
-                console.log(`✅ Unidade selecionada via lista suspensa.`);
-            } catch (error) {
-                console.warn("⚠️ Opção na lista suspensa não encontrada. Tentando digitar manualmente...");
-
-                // **5️⃣ Move o mouse antes de interagir com o campo de texto**
-                let campoUnidade = await driver.wait(
-                    until.elementLocated(By.xpath("//input[contains(@name, 'cboUnidadeMatriculaTransporte')]")),
-                    5000
-                );
-                await driver.wait(until.elementIsEnabled(campoUnidade), 5000);
-                await actions.move({ origin: campoUnidade }).perform();
-                await driver.sleep(500);
-                await campoUnidade.click();
-                await driver.sleep(500);
-                await campoUnidade.clear();
-                await campoUnidade.sendKeys("EEB G");
-                await driver.sleep(500);
-                await campoUnidade.sendKeys(Key.TAB);
-                await driver.sleep(1000);
-                console.log(`✅ Unidade de ensino preenchida manualmente.`);
-            }
-
-            // **6️⃣ Move o mouse para o fundo da página e clica para confirmar**
-            let corpoPagina = await driver.findElement(By.tagName("body"));
-            await actions.move({ origin: corpoPagina }).perform();
-            await corpoPagina.click();
-            await driver.sleep(500);
-
+            console.log(`✅ Unidade digitada e selecionada: EEB GONÇALVES DIAS`);
         } catch (error) {
             console.error(`❌ Erro ao preencher a unidade para ${aluno.NOME}:`, error);
         }
